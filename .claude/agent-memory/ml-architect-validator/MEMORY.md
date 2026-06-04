@@ -1,0 +1,2 @@
+- [Gridlock Dataset Structure](project_gridlock-data-structure.md) — verified data facts that override the surface description; load-bearing for CV design
+- [Gridlock Modeling Decisions](project_gridlock-modeling-decisions.md) — chosen architecture, target transform, CV strategy and the reasons
