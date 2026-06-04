@@ -1,2 +1,3 @@
 - [Gridlock Dataset Structure](project_gridlock-data-structure.md) — verified data facts that override the surface description; load-bearing for CV design
 - [Gridlock Modeling Decisions](project_gridlock-modeling-decisions.md) — chosen architecture, target transform, CV strategy and the reasons
+- [Gridlock CV Target Leak](project_gridlock-cv-leak.md) — day48 carry-forward leaks target into temporal CV; honest R2 ~0.49 not 0.98

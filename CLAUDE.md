@@ -12,8 +12,8 @@ Flipkart Gridlock Hackathon 2.0 — tabular regression to predict normalized tra
 # Run the solution pipeline
 python src/main.py
 
-# Install dependencies (assumes venv already activated)
-pip install -r requirements.txt
+# Install dependencies (project uses uv, venv at .venv)
+uv pip install -r requirements.txt
 
 # Quick EDA / experimentation
 jupyter notebook notebooks/
@@ -40,8 +40,36 @@ All data lives in `data/`. Never modify source files — write outputs to `submi
 
 ## Architecture
 
-`src/main.py` is the single pipeline entry point:
-1. Load `data/train.csv` + `data/test.csv`
-2. Feature engineering (timestamp parsing, geohash decode, encoding)
-3. Train model
-4. Predict on test set → write `submissions/submission.csv`
+`src/main.py` is the thin orchestrator. Modules:
+
+| File | Responsibility |
+|------|---------------|
+| `src/data.py` | `load_data()` — reads train/test CSVs |
+| `src/preprocessing.py` | `parse_timestamps`, `decode_geohashes`, `encode_categoricals`, `impute_temperature` |
+| `src/features.py` | Feature engineering + CV fold assignment (see below) |
+| `src/model.py` | `train_models()` — LightGBM + CatBoost with honest temporal CV |
+| `src/reporting.py` | `blend_predictions`, `print_analytics` (rich tables), `save_submission` |
+| `src/config.py` | All constants: paths, model params, feature lists |
+
+## Feature Engineering
+
+**CV design**: single honest fold — train on day-48 (69,427 rows), validate on day-49 (7,872 rows). Day-48 rows get `fold=-1`; day-49 rows get `fold=0`.
+
+**Critical**: day-48 has exactly one row per `(geohash, minute_of_day)`, so `demand_d48_same_slot` would equal the target exactly for all day-48 training rows (self-reference leak). Fix: day-48 rows receive a ±15 min neighbor-slot proxy (`same_slot_proxy`); day-49 and test rows get the genuine cross-day lookup.
+
+**Feature groups** (25 total):
+
+| Group | Features |
+|-------|---------|
+| Time | `minute_of_day`, `mod_sin`, `mod_cos` |
+| Spatial | `lat`, `lon` (from geohash decode), `geohash_te`, `geohash_prefix_te` (4-char) |
+| Road | `NumberofLanes`, `RoadType`, `large_vehicles`, `landmarks` |
+| Weather | `Temperature`, `Weather`, `*_missing` flags (3) |
+| Day-48 carry-forward | `demand_d48_same_slot`, `log_demand_d48_same_slot`, `demand_d48_relative_slot`, `demand_d48_geohash_mean`, `demand_d48_geohash_std`, `demand_d48_nearby_slots` |
+| Day-49 autoregressive | `demand_d49_morning_mean` (LOO on train), `demand_d49_last_known` |
+
+**Target**: `log(demand)` — inverted with `exp()` + clip to `[1e-6, 1.0]`.
+
+**Models**: LightGBM (drop geohash, cast RoadType/Weather to category) + CatBoost (geohash as cat feature, native handling). Final blend weight selected by grid search over OOF R². Current best: 100% CatBoost (OOF R²=0.6182 vs LGBM 0.2403).
+
+**Cold-start geohashes** (test only): spatial nearest-neighbor fallback via `sklearn.NearestNeighbors` on lat/lon.
