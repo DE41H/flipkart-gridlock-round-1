@@ -14,14 +14,16 @@ try:
     from .preprocessing import parse_timestamps
     from .features import build_features
     from .model import train_models
-    from .reporting import blend_predictions, print_analytics, save_submission
+    from .evaluation import evaluate
+    from .reporting import blend_predictions, print_analytics, save_artifacts, save_run_log, save_submission
 except ImportError:
     from config import CONSOLE
     from data import load_data
     from preprocessing import parse_timestamps
     from features import build_features
     from model import train_models
-    from reporting import blend_predictions, print_analytics, save_submission
+    from evaluation import evaluate
+    from reporting import blend_predictions, print_analytics, save_artifacts, save_run_log, save_submission
 
 warnings.filterwarnings("ignore")
 
@@ -37,8 +39,11 @@ def main() -> None:
 
     res = train_models(X_train, y_log, X_test, folds)
     res = blend_predictions(res)
+    eval_metrics = evaluate(res, X_train, X_test)
+    save_artifacts(res, X_train, folds, eval_metrics=eval_metrics)
+    print_analytics(res, eval_metrics)
+    save_run_log(res, X_train, eval_metrics=eval_metrics)
 
-    print_analytics(res)
     save_submission(test_parsed, res["test_pred"])
 
     CONSOLE.print(

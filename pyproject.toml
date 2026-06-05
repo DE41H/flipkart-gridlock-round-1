@@ -16,4 +16,14 @@ dependencies = [
     "jupyter",
     "notebook",
     "ipykernel",
+    "pytest",
+    "pytest-timeout",
+    "scipy",
+    "xgboost>=3.2.0",
+]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+markers = [
+    "artifacts: requires saved artifacts from a pipeline run (run src/main.py first)",
 ]
